@@ -1,0 +1,187 @@
+
+Code listing for: ZHBRBCI00100_OO
+
+Description: OO Class
+
+*-----------------------------------------------------------------------
+* Program.....: ZHBRBCI00100
+* Customer....: Hyundai Brasil
+* Module......: BC
+* Transaction.: N/A
+* Description.: Control Job Trigger: OO Class
+* Author......: Thiago Roberto Lourenço                 Date: 22.05.2015
+*-----------------------------------------------------------------------
+* Change History:
+*-----------------------------------------------------------------------
+* Date       |Request #  |Author             |Modification
+*-----------------------------------------------------------------------
+* 22.05.2015 |EDBK937639 |Thiago R. Lourenço |Initial Development
+*-----------------------------------------------------------------------
+
+*-----------------------------------------------------------------------
+* Class Definition
+*-----------------------------------------------------------------------
+CLASS lcl_job DEFINITION FINAL.
+
+*** Definition: Public
+  PUBLIC SECTION.
+
+*-----------------------------------------------------------------------
+* Constants
+*-----------------------------------------------------------------------
+    CONSTANTS:
+      c_erro      TYPE char01         VALUE 'E',
+      c_active    TYPE char01         VALUE 'R',
+      c_scheduled TYPE char01         VALUE 'P',
+      c_view      TYPE btch0000-char1 VALUE 'N'.
+
+*-----------------------------------------------------------------------
+* Methods
+*-----------------------------------------------------------------------
+    METHODS:
+
+***   Check job is running
+      check_active_job,
+
+***   Execute Job
+      execute_job.
+
+ENDCLASS. "lcl_job DEFINITION
+
+*-----------------------------------------------------------------------
+* Global Objects
+*-----------------------------------------------------------------------
+
+*** Local objects
+DATA: go_job TYPE REF TO lcl_job. "#EC NEEDED
+
+*-----------------------------------------------------------------------
+* Class Implementation
+*-----------------------------------------------------------------------
+CLASS lcl_job IMPLEMENTATION.
+
+*-----------------------------------------------------------------------
+* Method Name: check_active_job
+* Description: Check job is running
+* Input      : N/A
+* Output     : N/A
+*-----------------------------------------------------------------------
+  METHOD check_active_job.
+
+*** Check Job is running
+    SELECT COUNT(*)
+      FROM tbtco
+      WHERE jobname = p_job
+        AND status  = c_active.
+
+*** Not allowed to execute again
+    IF sy-subrc = 0.
+      MESSAGE s000(zsd03) WITH text-e01 p_job text-e02
+                          DISPLAY LIKE c_erro.
+      LEAVE LIST-PROCESSING.
+    ENDIF.
+
+  ENDMETHOD.                    "check_active_job
+
+*-----------------------------------------------------------------------
+* Method Name: execute_job
+* Description: Execute Job
+* Input      : N/A
+* Output     : N/A
+*-----------------------------------------------------------------------
+  METHOD execute_job.
+
+*** Local variabel
+    DATA: lc_jobname  TYPE tbtco-jobname ,
+          li_jobcount TYPE tbtco-jobcount,
+          lc_msgtx1   TYPE char50,
+          lc_msgtx2   TYPE char50,
+          ls_job      TYPE tbtcjob.
+
+*** Find Schedule job to Copy
+    SELECT jobname jobcount UP TO 1 ROWS
+      INTO (lc_jobname, li_jobcount)
+      FROM tbtco
+      WHERE jobname  EQ p_job
+        AND jobcount IN s_jobid
+        AND status   EQ c_scheduled.
+    ENDSELECT.
+
+*** Not found
+    IF sy-subrc <> 0.
+
+***   Error only Job
+      IF s_jobid[] IS INITIAL.
+
+***     Error message
+        MESSAGE e000 WITH text-e01 p_job text-e03.
+
+***   Error Job/ID
+      ELSE.
+
+***     Fill Message - JOB
+        CONCATENATE  text-e01 p_job
+        INTO         lc_msgtx1
+        SEPARATED BY space.
+
+***     Fill Message - ID
+        CONCATENATE  text-e05 s_jobid-low
+        INTO         lc_msgtx2
+        SEPARATED BY space.
+
+***     Error message
+        MESSAGE e000 WITH lc_msgtx1 lc_msgtx2 text-e03.
+
+      ENDIF.
+
+    ENDIF.
+
+*** Copy Job
+    CALL FUNCTION 'BP_JOB_COPY'
+      EXPORTING
+        dialog                  = c_view
+        source_jobcount         = li_jobcount
+        source_jobname          = lc_jobname
+        target_jobname          = lc_jobname
+      IMPORTING
+        new_jobhead             = ls_job
+      EXCEPTIONS
+        cant_create_new_job     = 1
+        cant_enq_job            = 2
+        cant_read_sourcedata    = 3
+        invalid_opcode          = 4
+        jobname_missing         = 5
+        job_copy_canceled       = 6
+        no_copy_privilege_given = 7
+        no_plan_privilege_given = 8
+        OTHERS                  = 9.
+
+*** Execute Job
+    IF sy-subrc = 0.
+
+***   Start Job
+      CALL FUNCTION 'JOB_CLOSE'                             "#EC *
+        EXPORTING
+          jobcount             = ls_job-jobcount
+          jobname              = ls_job-jobname
+          strtimmed            = abap_true
+        EXCEPTIONS
+          cant_start_immediate = 1
+          invalid_startdate    = 2
+          jobname_missing      = 3
+          job_close_failed     = 4
+          job_nosteps          = 5
+          job_notex            = 6
+          lock_failed          = 7
+          invalid_target       = 8
+          OTHERS               = 9.
+
+*** Error to Copy
+    ELSE.
+      MESSAGE e000 WITH text-e01 p_job text-e04.
+    ENDIF.
+
+  ENDMETHOD.                    "execute_job
+
+ENDCLASS. "lcl_job IMPLEMENTATION
+Extracted by Mass Download version 1.5.2 - E.G.Mellodew. 1998-2016. Sap Release 702

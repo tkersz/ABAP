@@ -1,0 +1,82 @@
+
+Code listing for: ZHBRBCI00100
+
+Description: Control Job Trigger
+
+*-----------------------------------------------------------------------
+* Program.....: ZHBRBCI00100
+* Customer....: Hyundai Brasil
+* Module......: BC
+* Transaction.: N/A
+* Description.: Control Job Trigger
+* Author......: Thiago Roberto Lourenço                 Date: 22.05.2015
+*-----------------------------------------------------------------------
+* Change History:
+*-----------------------------------------------------------------------
+* Date       |Request #  |Author             |Modification
+*-----------------------------------------------------------------------
+* 22.05.2015 |EDBK937639 |Thiago R. Lourenço |Initial Development
+*-----------------------------------------------------------------------
+REPORT zhbrbci00100 MESSAGE-ID zsd03.
+
+*-----------------------------------------------------------------------
+* Standard table
+*-----------------------------------------------------------------------
+TABLES: tbtco.
+
+*-----------------------------------------------------------------------
+* Selection-Screen
+*-----------------------------------------------------------------------
+
+*** Block: Execution Parameters
+SELECTION-SCREEN BEGIN OF BLOCK bl1 WITH FRAME TITLE text-001.
+
+PARAMETERS:
+  p_job TYPE tbtco-jobname OBLIGATORY.
+
+SELECT-OPTIONS:
+  s_jobid FOR tbtco-jobcount NO INTERVALS NO-EXTENSION.
+
+SELECTION-SCREEN END OF BLOCK bl1.
+
+*-----------------------------------------------------------------------
+* Include
+*-----------------------------------------------------------------------
+include zhbrbci00100_oo.
+
+*-----------------------------------------------------------------------
+* Start-of-Selection
+*-----------------------------------------------------------------------
+START-OF-SELECTION.
+
+*** Create Object
+  CREATE OBJECT go_job.
+
+*** Check job is active
+  go_job->check_active_job( ).
+
+*** Execute new job
+  go_job->execute_job( ).
+
+*Text elements
+*----------------------------------------------------------
+* 001 Execution Parameters
+* E01 Job
+* E02 is already running. Not Allowed to start again!
+* E03 is not Scheduled
+* E04 error when try to copy. Try Again!
+* E05 ID
+
+
+*Selection texts
+*----------------------------------------------------------
+* P_JOB         Job Name
+* S_JOBID         Job ID
+
+
+*Messages
+*----------------------------------------------------------
+*
+* Message class: ZSD03
+*000   &1 &2 &3 &4
+Extracted by Mass Download version 1.5.2 - E.G.Mellodew. 1998-2016. Sap Release 702
